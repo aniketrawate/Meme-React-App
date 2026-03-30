@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import "./App.css";
+
 
 function App() {
   const [meme, setMeme] = useState(null);
