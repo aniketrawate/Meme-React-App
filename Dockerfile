@@ -1,25 +1,32 @@
-# Build stage
+# ── Stage 1: Build ──────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies first for better layer caching
-COPY package*.json ./
+# Install dependencies first (layer cache)
+COPY package.json package-lock.json ./
 RUN npm ci
 
-# Build app
+# Copy source and build
 COPY . .
 RUN npm run build
 
-# Production stage
-FROM node:20-alpine
+# ── Stage 2: Serve with Nginx ────────────────────────────────────────────────
+FROM nginx:1.27-alpine AS production
 
-WORKDIR /app
+# Remove default Nginx static assets
+RUN rm -rf /usr/share/nginx/html/*
 
-RUN npm install -g serve
+# Copy built assets from the builder stage
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-COPY --from=builder /app/dist ./dist
+# Copy our site config into conf.d/
+# The main /etc/nginx/nginx.conf inside this image already has:
+#   include /etc/nginx/conf.d/*.conf;
+# So anything placed here is automatically picked up — no edits to nginx.conf needed.
+RUN rm /etc/nginx/conf.d/default.conf
+COPY meme-app.conf /etc/nginx/conf.d/meme-app.conf
 
-EXPOSE 3000
+EXPOSE 80
 
-CMD ["serve", "dist"]
+CMD ["nginx", "-g", "daemon off;"]
